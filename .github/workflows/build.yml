@@ -112,13 +112,13 @@ jobs:
       - name: Check buildozer.spec
         run: |
           if [ ! -f "buildozer.spec" ]; then
-            docker run --rm -v $(pwd):/github/workspace custom-buildozer sh -c "cd /github/workspace && buildozer init"
+            docker run --rm -v $(pwd):/github/workspace custom-buildozer sh -c "cd /github/workspace && yes y | buildozer init"
           fi
       
       # Ejecutar la compilación con Buildozer dentro del contenedor
       - name: Build with Buildozer
         run: |
-          docker run --rm -v $(pwd):/github/workspace -v /home/runner/.buildozer_global:/root/.buildozer custom-buildozer sh -c "cd /github/workspace && buildozer -v android debug"
+          docker run --rm -v $(pwd):/github/workspace -v /home/runner/.buildozer_global:/root/.buildozer custom-buildozer sh -c "cd /github/workspace && yes y | buildozer --use-system-buildozer -v android debug"
       
       # Buscar el archivo APK generado
       - name: Find APK file
