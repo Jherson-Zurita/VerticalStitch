@@ -2,47 +2,134 @@ name: CI
 on:
   push:
     branches: [ main ]
-
 jobs:
   build:
     runs-on: ubuntu-22.04
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
+      
       # Obtener la fecha actual
       - name: Get Date
         id: get-date
         run: echo "date=$(date -u +%Y%m%d)" >> $GITHUB_ENV
+      
+      # Crear el directorio para el Dockerfile
+      - name: Create Docker directory
+        run: mkdir -p .docker
+      
+      # Crear el Dockerfile personalizado
+      - name: Create Dockerfile
+        run: |
+          cat > .docker/Dockerfile << 'EOF'
+          # Usa Ubuntu 22.04 como base
+          FROM ubuntu:22.04
 
+          # Evita preguntas interactivas durante la instalación de paquetes
+          ENV DEBIAN_FRONTEND=noninteractive
+
+          # Actualiza el sistema e instala dependencias
+          RUN apt-get update && apt-get install -y \
+              python3 \
+              python3-pip \
+              python3-dev \
+              build-essential \
+              git \
+              wget \
+              unzip \
+              zip \
+              openjdk-11-jdk \
+              autoconf \
+              automake \
+              libtool \
+              libffi-dev \
+              libssl-dev \
+              pkg-config \
+              libltdl-dev \
+              libbz2-dev \
+              libreadline-dev \
+              libsqlite3-dev \
+              zlib1g-dev \
+              libncurses5-dev \
+              libncursesw5-dev \
+              xz-utils \
+              tk-dev \
+              libffi-dev \
+              liblzma-dev \
+              libgdbm-dev \
+              libgdbm-compat-dev \
+              libexpat1-dev \
+              libc6-dev \
+              libbz2-dev \
+              libssl-dev \
+              ccache \
+              lld \
+              && apt-get clean \
+              && rm -rf /var/lib/apt/lists/*
+
+          # Instala Buildozer desde PyPI
+          RUN pip3 install --upgrade pip Cython
+          RUN pip3 install --upgrade buildozer
+
+          # Instala herramientas de compilación Android
+          RUN mkdir -p /opt/android
+          WORKDIR /opt/android
+
+          # Crea un directorio para tu aplicación
+          RUN mkdir -p /app
+          WORKDIR /app
+
+          # Instala dependencias adicionales de Buildozer
+          RUN buildozer init
+          RUN apt-get update && buildozer -v android debug || true
+          RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+          # Establece el entorno de compilación para Android
+          ENV PATH=$PATH:/opt/android/android-sdk/tools:/opt/android/android-sdk/platform-tools
+
+          # Directorio de trabajo
+          WORKDIR /github/workspace
+          
+          # Entrypoint para permitir ejecutar comandos arbitrarios
+          ENTRYPOINT []
+          EOF
+      
       # Cachear el directorio global de Buildozer
       - name: Cache Buildozer global directory
         uses: actions/cache@v4
         with:
           path: .buildozer_global
           key: buildozer-global-${{ hashFiles('buildozer.spec') }}
-
+      
       # Cachear el directorio de compilación
       - name: Cache Buildozer directory
         uses: actions/cache@v4
         with:
           path: .buildozer
           key: ${{ runner.os }}-${{ env.date }}-${{ hashFiles('buildozer.spec') }}
-
-      # Construir con Buildozer
+      
+      # Construir la imagen de Docker
+      - name: Build Docker Image
+        run: docker build -t custom-buildozer .docker
+      
+      # Ejecutar la compilación con Buildozer dentro del contenedor
       - name: Build with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
-        with:
-          command: buildozer android debug
-          buildozer_version: 1.5.0
-
+        run: |
+          docker run --rm -v $(pwd):/github/workspace custom-buildozer sh -c "cd /github/workspace && buildozer -v android debug"
+      
+      # Buscar el archivo APK generado
+      - name: Find APK file
+        id: find-apk
+        run: |
+          APK_PATH=$(find . -name "*.apk" | head -n 1)
+          echo "Found APK at $APK_PATH"
+          echo "apk_path=$APK_PATH" >> $GITHUB_ENV
+      
       # Subir los artefactos
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: package
-          path: ${{ steps.buildozer.outputs.filename }}
+          path: ${{ env.apk_path }}
 
 
