@@ -47,22 +47,27 @@ RUN apt-get update && apt-get install -y \
 RUN pip3 install --upgrade pip Cython
 RUN pip3 install --upgrade buildozer
 
-# Instala herramientas de compilación Android
-RUN mkdir -p /opt/android
-WORKDIR /opt/android
+# Instala dependencias adicionales de Android
+RUN apt-get update && apt-get install -y \
+    libltdl-dev \
+    libffi-dev \
+    libssl-dev \
+    autoconf \
+    automake \
+    libtool \
+    zlib1g-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Crea un directorio para tu aplicación
-RUN mkdir -p /app
-WORKDIR /app
+# Pre-descarga las dependencias de Android de buildozer
+RUN mkdir -p /root/.buildozer/android/platform
+WORKDIR /tmp
+RUN pip3 install -v pyjnius
+RUN apt-get update && apt-get install -y cmake libstdc++6 && apt-get clean
+RUN pip3 install cython
 
-# Instala dependencias adicionales de Buildozer
-RUN buildozer init
-RUN apt-get update && buildozer -v android debug || true
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+# Crea un directorio de trabajo
+WORKDIR /github/workspace
 
-# Establece el entorno de compilación para Android
-ENV PATH=$PATH:/opt/android/android-sdk/tools:/opt/android/android-sdk/platform-tools
-
-# Establece el punto de entrada del contenedor
-ENTRYPOINT ["buildozer"]
-CMD ["android", "debug"]
+# Entrypoint para permitir ejecutar comandos arbitrarios
+ENTRYPOINT []
