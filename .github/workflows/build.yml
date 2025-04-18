@@ -36,15 +36,28 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y python3-pip zip unzip openjdk-17-jdk libsdl2-dev \
-            libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
-            libportmidi-dev libswscale-dev libavformat-dev libavcodec-dev \
-            libfreetype6-dev libjpeg-dev libpng-dev
+          sudo apt install -y python3-pip zip unzip openjdk-17-jdk wget
           pip install --upgrade pip
-          pip install Cython==0.29.36
-          pip install buildozer
+          pip install Cython==0.29.36 buildozer
+
+          # Crear carpeta si no existe
+          mkdir -p ~/.android && touch ~/.android/repositories.cfg
+
+          # Instalar SDK Manager y herramientas necesarias
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
+          unzip cmdline-tools.zip -d cmdline-tools
+          mkdir -p $HOME/android-sdk/cmdline-tools/latest
+          mv cmdline-tools/cmdline-tools/* $HOME/android-sdk/cmdline-tools/latest/
+
+          export ANDROID_HOME=$HOME/android-sdk
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+
+          yes | sdkmanager --sdk_root=${ANDROID_HOME} "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
       - name: Build with Buildozer
+        env:
+          ANDROID_HOME: $HOME/android-sdk
+          PATH: $HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$PATH
         run: buildozer android debug
 
       - name: Upload artifacts
@@ -52,3 +65,4 @@ jobs:
         with:
           name: package
           path: bin/*.apk
+
