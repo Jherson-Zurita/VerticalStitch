@@ -71,35 +71,31 @@ jobs:
           RUN pip3 install --upgrade pip Cython
           RUN pip3 install --upgrade buildozer
 
-          # Instala herramientas de compilación Android
-          RUN mkdir -p /opt/android
-          WORKDIR /opt/android
+          # Instala dependencias adicionales de Android
+          RUN apt-get update && apt-get install -y \
+              libltdl-dev \
+              libffi-dev \
+              libssl-dev \
+              autoconf \
+              automake \
+              libtool \
+              zlib1g-dev \
+              && apt-get clean \
+              && rm -rf /var/lib/apt/lists/*
 
-          # Crea un directorio para tu aplicación
-          RUN mkdir -p /app
-          WORKDIR /app
+          # Pre-descarga las dependencias de Android de buildozer
+          RUN mkdir -p /root/.buildozer/android/platform
+          WORKDIR /tmp
+          RUN pip3 install -v pyjnius
+          RUN apt-get update && apt-get install -y cmake libstdc++6 && apt-get clean
+          RUN pip3 install cython
 
-          # Instala dependencias adicionales de Buildozer
-          RUN buildozer init
-          RUN apt-get update && buildozer -v android debug || true
-          RUN apt-get clean && rm -rf /var/lib/apt/lists/*
-
-          # Establece el entorno de compilación para Android
-          ENV PATH=$PATH:/opt/android/android-sdk/tools:/opt/android/android-sdk/platform-tools
-
-          # Directorio de trabajo
+          # Crea un directorio de trabajo
           WORKDIR /github/workspace
-          
+
           # Entrypoint para permitir ejecutar comandos arbitrarios
           ENTRYPOINT []
           EOF
-      
-      # Cachear el directorio global de Buildozer
-      - name: Cache Buildozer global directory
-        uses: actions/cache@v4
-        with:
-          path: .buildozer_global
-          key: buildozer-global-${{ hashFiles('buildozer.spec') }}
       
       # Cachear el directorio de compilación
       - name: Cache Buildozer directory
@@ -112,24 +108,33 @@ jobs:
       - name: Build Docker Image
         run: docker build -t custom-buildozer .docker
       
+      # Verificar si existe buildozer.spec, si no, inicializarlo
+      - name: Check buildozer.spec
+        run: |
+          if [ ! -f "buildozer.spec" ]; then
+            docker run --rm -v $(pwd):/github/workspace custom-buildozer sh -c "cd /github/workspace && buildozer init"
+          fi
+      
       # Ejecutar la compilación con Buildozer dentro del contenedor
       - name: Build with Buildozer
         run: |
-          docker run --rm -v $(pwd):/github/workspace custom-buildozer sh -c "cd /github/workspace && buildozer -v android debug"
+          docker run --rm -v $(pwd):/github/workspace -v /home/runner/.buildozer_global:/root/.buildozer custom-buildozer sh -c "cd /github/workspace && buildozer -v android debug"
       
       # Buscar el archivo APK generado
       - name: Find APK file
         id: find-apk
         run: |
           APK_PATH=$(find . -name "*.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            echo "No APK file found!"
+            exit 1
+          fi
           echo "Found APK at $APK_PATH"
-          echo "apk_path=$APK_PATH" >> $GITHUB_ENV
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
       
       # Subir los artefactos
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: package
-          path: ${{ env.apk_path }}
-
-
+          path: ${{ steps.find-apk.outputs.apk_path }}
