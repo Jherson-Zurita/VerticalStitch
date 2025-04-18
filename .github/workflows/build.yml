@@ -9,7 +9,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Obtener la fecha actual
       - name: Get Date
@@ -18,14 +18,14 @@ jobs:
 
       # Cachear el directorio global de Buildozer
       - name: Cache Buildozer global directory
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: .buildozer_global
           key: buildozer-global-${{ hashFiles('buildozer.spec') }}
 
       # Cachear el directorio de compilación
       - name: Cache Buildozer directory
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: .buildozer
           key: ${{ runner.os }}-${{ env.date }}-${{ hashFiles('buildozer.spec') }}
