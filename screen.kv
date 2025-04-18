@@ -1,0 +1,628 @@
+#:kivy 2.1.0
+#:import os os
+<CustomMDSlider@MDSlider>:
+    size_hint_y: None
+    height: dp(48)
+    hint: True
+    hint_bg_color: app.theme_cls.primary_color
+    hint_text_color: "black"
+    track_color_active: app.theme_cls.primary_color
+    track_color_inactive: app.theme_cls.divider_color
+
+<CustomMDCard@MDCard>:
+    orientation: "vertical"
+    padding: dp(16)
+    spacing: dp(8)
+    size_hint: 1, None
+    height: self.minimum_height
+    elevation: 1
+    radius: dp(10)
+    ripple_behavior: True
+    md_bg_color: app.theme_cls.bg_normal
+
+<CustomMDButton@MDRaisedButton>:
+    size_hint: None, None
+    width: dp(200)
+    height: dp(48)
+    pos_hint: {"center_x": 0.5}
+    elevation: 2
+    
+<CustomDropdownSection@MDBoxLayout>:
+    orientation: "vertical"
+    size_hint_y: None
+    height: self.minimum_height
+    padding: [0, dp(8)]
+    spacing: dp(4)
+    
+    canvas:
+        Color:
+            rgba: app.theme_cls.divider_color
+        Line:
+            points: self.x, self.y, self.x + self.width, self.y
+            width: 1
+
+ScreenManager:
+
+
+    VideoSelectionScreen:
+    EditScreen:
+    ParametersScreen:
+    ResultScreen:
+    SettingScreen:
+
+<VideoSelectionScreen>:
+    name: "video_selection"
+    MDBoxLayout:
+        orientation: 'vertical'
+        padding: dp(16)
+        spacing: dp(16)
+        
+        MDTopAppBar:
+            title: "Seleccionar Video"
+            left_action_items: [["cog", lambda x: app.go_to_settings()]]
+            right_action_items: [["information-outline", lambda x: app.show_info_dialog()]]
+            elevation: 4
+        
+        CustomMDCard:
+            MDLabel:
+                text: "Selecciona un archivo de video para procesar"
+                halign: "center"
+                size_hint_y: None
+                height: dp(40)
+                
+        FileChooserListView:
+            id: filechooser
+            size_hint: 1, 1
+            on_selection: app.select_video(filechooser.selection)
+            filters: ["*.mp4", "*.avi", "*.mov", "*.mkv"]
+            path: app.settings.get("video_path", "") if app.settings.get("video_path", "") else os.path.expanduser("/")
+        
+        MDBoxLayout:
+            orientation: "horizontal"
+            size_hint_y: None
+            height: dp(56)
+            spacing: dp(10)
+            padding: [dp(16), 0]
+            
+            MDLabel:
+                text: "Video seleccionado:"
+                size_hint_x: 0.4
+                
+            MDLabel:
+                id: selected_video_label
+                text: "Ninguno"
+                size_hint_x: 0.6
+                shorten: True
+                shorten_from: "right"
+        
+        CustomMDButton:
+            id: next_button
+            text: "Siguiente"
+            disabled: True
+            on_release: app.go_to_edit()
+
+
+
+<EditScreen>:
+    name: "edit"
+    MDBoxLayout:
+        orientation: 'vertical'
+        spacing: dp(8)
+        
+        MDTopAppBar:
+            title: "Editar Video"
+            left_action_items: [["arrow-left", lambda x: app.go_back()]]
+            elevation: 4
+        
+        BoxLayout:
+            id: video_box
+            size_hint_y: 0.7
+            on_touch_down: app.on_touch_down(args[1]) if app.crop_mode else None
+            on_touch_move: app.on_touch_move(args[1]) if app.crop_mode else None
+            on_touch_up: app.on_touch_up(args[1]) if app.crop_mode else None
+        
+        MDBoxLayout:
+            orientation: 'vertical'
+            size_hint_y: 0.3
+            padding: dp(16)
+            spacing: dp(8)
+            
+            MDBoxLayout:
+                orientation: 'horizontal'
+                size_hint_y: None
+                height: dp(48)
+                spacing: dp(8)
+                
+                MDLabel:
+                    text: "Inicio:"
+                    size_hint_x: None
+                    width: dp(60)
+                
+                MDSlider:
+                    id: start_slider
+                    min: 0
+                    max: 100
+                    value: 0
+                    on_value: app.update_start_frame(self.value)
+                
+                MDLabel:
+                    id: start_time_label
+                    text: "00:00"
+                    size_hint_x: None
+                    width: dp(60)
+            
+            MDBoxLayout:
+                orientation: 'horizontal'
+                size_hint_y: None
+                height: dp(48)
+                spacing: dp(8)
+                
+                MDLabel:
+                    text: "Fin:"
+                    size_hint_x: None
+                    width: dp(60)
+                
+                MDSlider:
+                    id: end_slider
+                    min: 0
+                    max: 100
+                    value: 100
+                    on_value: app.update_end_frame(self.value)
+                
+                MDLabel:
+                    id: end_time_label
+                    text: "00:00"
+                    size_hint_x: None
+                    width: dp(60)
+            
+            MDBoxLayout:
+                orientation: 'horizontal'
+                size_hint_y: None
+                height: dp(48)
+                spacing: dp(8)
+                
+                MDRaisedButton:
+                    text: "Crop Mode"
+                    on_release: app.toggle_crop_mode()
+                    md_bg_color: app.crop_mode_button_color
+                
+                MDRaisedButton:
+                    text: "Continuar"
+                    on_release: app.save_crop_settings()
+            
+            MDBoxLayout:
+                orientation: 'horizontal'
+                size_hint_y: None
+                height: dp(48)
+                spacing: dp(8)
+                
+                MDFlatButton:
+                    text: "Omitir Edición"
+                    size_hint_x: 0.5
+                    md_bg_color: [0.88, 0.13, 0.93, 1]  # Color vibrante (naranja)
+                    text_color: [1, 1, 1, 1]  # Texto en blanco para mayor contraste
+                    elevation: 5  # Agregar un poco de profundidad
+                    radius: [dp(8)]  # Bordes redondeados
+                    on_release: app.root.current = "parameters"
+
+
+
+
+<ParametersScreen>:
+    name: "parameters"
+    MDBoxLayout:
+        orientation: 'vertical'
+
+        MDTopAppBar:
+            title: "Configurar Parámetros"
+            left_action_items: [["arrow-left", lambda x: app.go_back()]]
+            elevation: 4
+
+        ScrollView:
+            do_scroll_x: False
+            do_scroll_y: True
+
+            MDBoxLayout:
+                orientation: 'vertical'
+                padding: dp(20)
+                spacing: dp(20)
+                size_hint_y: None
+                height: self.minimum_height
+
+                # Get Frame Section
+                MDCard:
+                    padding: dp(10)
+                    orientation: 'vertical'
+                    spacing: dp(10)
+                    elevation: 2
+                    size_hint_y: None
+                    height: self.minimum_height
+
+                    MDLabel:
+                        text: "Configuración de Frames"
+                        bold: True
+                        size_hint_y: None
+                        height: dp(30)
+
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: dp(50)
+
+                        MDLabel:
+                            text: "Porcentaje de recorte:"
+                            size_hint_x: 0.4
+
+                        MDSlider:
+                            id: crop_percent
+                            min: 0
+                            max: 100
+                            value: 50
+                            size_hint_x: 0.6
+
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: dp(50)
+
+                        MDLabel:
+                            text: "Mantener primer original:"
+                            size_hint_x: 0.6
+
+                        MDSwitch:
+                            id: keep_first_original
+                            size_hint_x: 0.4
+                            pos_hint: {"center_y": 0.5}
+
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: dp(50)
+
+                        MDLabel:
+                            text: "Mantener último original:"
+                            size_hint_x: 0.6
+
+                        MDSwitch:
+                            id: keep_last_original
+                            size_hint_x: 0.4
+                            pos_hint: {"center_y": 0.5}
+
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: dp(50)
+
+                        MDLabel:
+                            text: "Intervalo:"
+                            size_hint_x: 0.4
+
+                        MDSlider:
+                            id: interval
+                            min: 1
+                            max: 20
+                            value: 10
+                            size_hint_x: 0.6
+
+                # Parámetro Comparación Section
+                MDCard:
+                    padding: dp(10)
+                    orientation: 'vertical'
+                    spacing: dp(10)
+                    elevation: 2
+                    size_hint_y: None
+                    height: self.minimum_height
+
+                    MDLabel:
+                        text: "Configuración de Comparación"
+                        bold: True
+                        size_hint_y: None
+                        height: dp(30)
+
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: dp(50)
+
+                        MDLabel:
+                            text: "Filtro:"
+                            size_hint_x: 0.4
+
+                        MDFlatButton:
+                            id: filtro_button
+                            text: "canny"
+                            size_hint_x: 0.6
+                            radius: [dp(8), dp(8), dp(8), dp(8)]
+                            on_release: app.show_filtro_menu()
+
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: dp(50)
+
+                        MDLabel:
+                            text: "Método de comparación:"
+                            size_hint_x: 0.4
+
+                        MDFlatButton:
+                            id: metodo_comparacion_button
+                            text: "pixel"
+                            size_hint_x: 0.6
+                            radius: [dp(8), dp(8), dp(8), dp(8)]
+                            on_release: app.show_metodo_comparacion_menu()
+
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: dp(50)
+
+                        MDLabel:
+                            text: "Umbral coincidencia:"
+                            size_hint_x: 0.4
+
+                        MDSlider:
+                            id: umbral_coincidencia
+                            min: 0
+                            max: 1
+                            value: 0.85
+                            size_hint_x: 0.6
+
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: dp(50)
+
+                        MDLabel:
+                            text: "Incremento paso:"
+                            size_hint_x: 0.4
+
+                        MDSlider:
+                            id: incremento_paso
+                            min: 1
+                            max: 12
+                            value: 2
+                            size_hint_x: 0.6
+
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: dp(50)
+
+                        MDLabel:
+                            text: "Escala reducción:"
+                            size_hint_x: 0.4
+
+                        MDSlider:
+                            id: escala_reduccion
+                            min: 0
+                            max: 1
+                            value: 0.95
+                            size_hint_x: 0.6
+
+                # Unión Section
+                MDCard:
+                    padding: dp(10)
+                    orientation: 'vertical'
+                    spacing: dp(10)
+                    elevation: 2
+                    size_hint_y: None
+                    height: self.minimum_height
+
+                    MDLabel:
+                        text: "Configuración de Unión"
+                        bold: True
+                        size_hint_y: None
+                        height: dp(30)
+
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: dp(50)
+
+                        MDLabel:
+                            text: "Método de fusión:"
+                            size_hint_x: 0.4
+
+                        MDFlatButton:
+                            id: metodo_fusion_button
+                            text: "simple"
+                            size_hint_x: 0.6
+                            radius: [dp(8), dp(8), dp(8), dp(8)]
+                            on_release: app.show_metodo_fusion_menu()
+
+                # Botón de Procesamiento
+                MDBoxLayout:
+                    orientation: 'vertical'
+                    padding: dp(20)
+                    size_hint_y: None
+                    height: dp(80)
+
+                    MDRaisedButton:
+                        text: "Comenzar Procesamiento"
+                        on_release: app.process_video()
+                        md_bg_color: app.theme_cls.primary_color
+                        text_color: app.theme_cls.text_color
+<ResultScreen>:
+    name: "result"
+    MDBoxLayout:
+        orientation: 'vertical'
+        spacing: dp(8)
+
+        MDTopAppBar:
+            title: "Resultado"
+            left_action_items: [["arrow-left", lambda x: app.go_back()]]
+            right_action_items: [["content-save", lambda x: app.save_result()]]
+            elevation: 4
+
+        MDBoxLayout:
+            orientation: 'vertical'
+            size_hint_y: 1 # Hace que este MDBoxLayout ocupe el espacio restante
+            padding: dp(8)
+            spacing: dp(8)
+
+            CustomMDCard:
+                size_hint_y: 1
+
+                ScrollView:
+                    do_scroll_x: True
+                    do_scroll_y: True
+
+                    Image:
+                        id: result_image
+                        size_hint: 1, 1
+                        size: self.texture_size
+                        allow_stretch: True
+                        keep_ratio: True
+
+
+        MDBoxLayout:
+            id: dynamic_boxes
+            orientation: 'horizontal'
+            size_hint_y: None # Asegura que no se expanda verticalmente
+            height: dp(70) # Ajusta la altura según sea necesario
+            spacing: dp(8)
+            padding: dp(16)
+
+            CustomMDCard:
+                size_hint: None, None
+                size: dp(50), dp(50)
+                MDLabel:
+                    text: "1"
+                    halign: "center"
+                    valign: "middle"
+
+            CustomMDCard:
+                size_hint: None, None
+                size: dp(50), dp(50)
+                MDLabel:
+                    text: "2"
+                    halign: "center"
+                    valign: "middle"
+
+        MDBoxLayout:
+            orientation: 'horizontal'
+            size_hint_y: None # Asegura que no se expanda verticalmente
+            height: dp(56)
+            spacing: dp(16)
+
+            CustomMDButton:
+                text: "Regenerar Imagen"
+                size_hint_x: 0.5
+                width: dp(140)
+                on_release: app.regenerate_image()
+
+            CustomMDButton:
+                text: "Nuevo Proyecto"
+                size_hint_x: 0.5
+                width: dp(140)
+                on_release: app.new_project()
+<SettingScreen>:
+    name: "settings"
+    MDBoxLayout:
+        orientation: 'vertical'
+
+        MDTopAppBar:
+            title: "Configuración"
+            left_action_items: [["arrow-left", lambda x: app.go_back()]]
+            elevation: 4
+
+        MDBoxLayout:
+            orientation: 'vertical'
+            padding: dp(16)
+            spacing: dp(12)
+
+            # Sección de configuración de la aplicación
+            CustomMDCard:
+                MDLabel:
+                    text: "Configuración de la aplicación"
+                    halign: "center"
+                    size_hint_y: None
+                    height: dp(40)
+                    padding: [dp(8), 0]
+
+                CustomDropdownSection:
+                    MDLabel:
+                        text: "Tema de la aplicación"
+                        size_hint_y: None
+                        height: dp(40)
+
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: dp(50)
+                        padding: [dp(8), dp(8)]
+                        spacing: dp(8)
+
+                        MDLabel:
+                            text: "Tema:"
+                            size_hint_x: 0.4
+
+                        MDSwitch:
+                            id: theme_switch
+                            size_hint_x: 0.3
+                            pos_hint: {"center_y": 0.5}
+                            on_active: app.toggle_theme(self.active)
+
+            # Sección de configuración de archivos de video
+            CustomMDCard:
+                MDLabel:
+                    text: "Configuración de archivos de video"
+                    halign: "center"
+                    size_hint_y: None
+                    height: dp(40)
+                    padding: [dp(8), 0]
+
+                MDBoxLayout:
+                    orientation: 'horizontal'
+                    size_hint_y: None
+                    height: dp(50)
+                    padding: [dp(8), dp(8)]
+                    spacing: dp(8)
+
+                    MDLabel:
+                        text: "Carpeta de videos:"
+                        size_hint_x: 0.4
+
+                    MDLabel:
+                        id: video_path_label
+                        text: "Mostrar todo" if app.settings.get("video_path", "") == "" else app.settings.get("video_path", "")
+                        size_hint_x: 0.4
+                        shorten: True
+                        shorten_from: "right"
+
+                    CustomMDButton:
+                        text: "Cambiar"
+                        size_hint_x: 0.25  
+                        on_release: app.select_video_folder()
+
+            # Sección de configuración de guardado de imágenes
+            CustomMDCard:
+                MDLabel:
+                    text: "Configuración de guardado de imágenes"
+                    halign: "center"
+                    size_hint_y: None
+                    height: dp(40)
+                    padding: [dp(8), 0]
+
+                MDBoxLayout:
+                    orientation: 'horizontal'
+                    size_hint_y: None
+                    height: dp(50)
+                    padding: [dp(8), dp(8)]
+                    spacing: dp(8)
+
+                    MDLabel:
+                        text: "Carpeta de imágenes:"
+                        size_hint_x: 0.4
+
+                    MDLabel:
+                        id: image_path_label
+                        text: "Mostrar todo" if app.settings.get("image_path", "") == "" else app.settings.get("image_path", "")
+                        size_hint_x: 0.4
+                        shorten: True
+                        shorten_from: "right"
+
+                    CustomMDButton:
+                        text: "Cambiar"
+                        size_hint_x: 0.25  
+                        on_release: app.select_image_folder()
