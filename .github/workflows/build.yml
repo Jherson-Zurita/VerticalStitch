@@ -5,7 +5,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 360
+    timeout-minutes: 360  # 6 horas para permitir compilaciones largas
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -91,6 +91,9 @@ jobs:
           RUN apt-get update && apt-get install -y cmake libstdc++6 && apt-get clean
           RUN pip3 install cython
 
+          # Añadir /root/.local/bin al PATH para los scripts instalados por pip
+          ENV PATH="/root/.local/bin:${PATH}"
+
           # Crea un directorio de trabajo
           WORKDIR /github/workspace
 
@@ -116,10 +119,31 @@ jobs:
             docker run --rm -v $(pwd):/github/workspace custom-buildozer sh -c "cd /github/workspace && yes y | buildozer init"
           fi
       
-      # Ejecutar la compilación con Buildozer dentro del contenedor
+      # Ver contenido del buildozer.spec
+      - name: Display buildozer.spec
+        run: cat buildozer.spec
+      
+      # Ejecutar la compilación con Buildozer dentro del contenedor con redirección de salida
       - name: Build with Buildozer
         run: |
-          docker run --rm -v $(pwd):/github/workspace -v /home/runner/.buildozer_global:/root/.buildozer custom-buildozer sh -c "cd /github/workspace && yes y | buildozer --use-system-buildozer -v android debug"
+          docker run --rm -v $(pwd):/github/workspace -v /home/runner/.buildozer_global:/root/.buildozer custom-buildozer sh -c "cd /github/workspace && yes y | buildozer --use-system-buildozer -v android debug" > buildozer_output.log 2>&1 || (cat buildozer_output.log && exit 1)
+          
+          # Si llegamos aquí, el comando se completó correctamente
+          # Mostrar las últimas 100 líneas del log para ver el resultado
+          tail -n 100 buildozer_output.log
+      
+      # Si la compilación falló, mostrar el log completo
+      - name: Display full log on failure
+        if: failure()
+        run: |
+          echo "### Mostrando el log completo de Buildozer ###"
+          cat buildozer_output.log
+          
+          # También vamos a mostrar los logs específicos de Python-for-Android si existen
+          if [ -f ".buildozer/android/platform/python-for-android/build.log" ]; then
+            echo "### Mostrando log de Python-for-Android ###"
+            cat .buildozer/android/platform/python-for-android/build.log
+          fi
       
       # Buscar el archivo APK generado
       - name: Find APK file
@@ -139,3 +163,13 @@ jobs:
         with:
           name: package
           path: ${{ steps.find-apk.outputs.apk_path }}
+      
+      # Guardar logs como artefacto para su revisión
+      - name: Save logs as artifact
+        uses: actions/upload-artifact@v4
+        if: always()  # Siempre ejecutar este paso, incluso si falla el resto
+        with:
+          name: buildozer-logs
+          path: |
+            buildozer_output.log
+            .buildozer/android/platform/python-for-android/build.log
