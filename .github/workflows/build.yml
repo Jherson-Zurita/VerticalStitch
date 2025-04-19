@@ -1,175 +1,48 @@
-name: CI
+name: Build Kivy APK
+
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main  # O la rama que uses
+  workflow_dispatch:  # Te permite ejecutarlo manualmente desde GitHub
+
 jobs:
   build:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 360  # 6 horas para permitir compilaciones largas
+    name: Build APK with Buildozer
+    runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      # Obtener la fecha actual
-      - name: Get Date
-        id: get-date
-        run: echo "date=$(date -u +%Y%m%d)" >> $GITHUB_ENV
-      
-      # Crear el directorio para el Dockerfile
-      - name: Create Docker directory
-        run: mkdir -p .docker
-      
-      # Crear el Dockerfile personalizado
-      - name: Create Dockerfile
-        run: |
-          cat > .docker/Dockerfile << 'EOF'
-          # Usa Ubuntu 22.04 como base
-          FROM ubuntu:22.04
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-          # Evita preguntas interactivas durante la instalación de paquetes
-          ENV DEBIAN_FRONTEND=noninteractive
-
-          # Actualiza el sistema e instala dependencias
-          RUN apt-get update && apt-get install -y \
-              python3 \
-              python3-pip \
-              python3-dev \
-              build-essential \
-              git \
-              wget \
-              unzip \
-              zip \
-              openjdk-11-jdk \
-              autoconf \
-              automake \
-              libtool \
-              libffi-dev \
-              libssl-dev \
-              pkg-config \
-              libltdl-dev \
-              libbz2-dev \
-              libreadline-dev \
-              libsqlite3-dev \
-              zlib1g-dev \
-              libncurses5-dev \
-              libncursesw5-dev \
-              xz-utils \
-              tk-dev \
-              libffi-dev \
-              liblzma-dev \
-              libgdbm-dev \
-              libgdbm-compat-dev \
-              libexpat1-dev \
-              libc6-dev \
-              libbz2-dev \
-              libssl-dev \
-              ccache \
-              lld \
-              && apt-get clean \
-              && rm -rf /var/lib/apt/lists/*
-
-          # Instala Buildozer desde PyPI
-          RUN pip3 install --upgrade pip Cython
-          RUN pip3 install --upgrade buildozer
-
-          # Instala dependencias adicionales de Android
-          RUN apt-get update && apt-get install -y \
-              libltdl-dev \
-              libffi-dev \
-              libssl-dev \
-              autoconf \
-              automake \
-              libtool \
-              zlib1g-dev \
-              && apt-get clean \
-              && rm -rf /var/lib/apt/lists/*
-
-          # Pre-descarga las dependencias de Android de buildozer
-          RUN mkdir -p /root/.buildozer/android/platform
-          WORKDIR /tmp
-          RUN pip3 install -v pyjnius
-          RUN apt-get update && apt-get install -y cmake libstdc++6 && apt-get clean
-          RUN pip3 install cython
-
-          # Añadir /root/.local/bin al PATH para los scripts instalados por pip
-          ENV PATH="/root/.local/bin:${PATH}"
-
-          # Crea un directorio de trabajo
-          WORKDIR /github/workspace
-
-          # Entrypoint para permitir ejecutar comandos arbitrarios
-          ENTRYPOINT []
-          EOF
-      
-      # Cachear el directorio de compilación
-      - name: Cache Buildozer directory
-        uses: actions/cache@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          path: .buildozer
-          key: ${{ runner.os }}-${{ env.date }}-${{ hashFiles('buildozer.spec') }}
-      
-      # Construir la imagen de Docker
-      - name: Build Docker Image
-        run: docker build -t custom-buildozer .docker
-      
-      # Verificar si existe buildozer.spec, si no, inicializarlo
-      - name: Check buildozer.spec
+          python-version: '3.10'
+
+      - name: Install dependencies
         run: |
-          if [ ! -f "buildozer.spec" ]; then
-            docker run --rm -v $(pwd):/github/workspace custom-buildozer sh -c "cd /github/workspace && yes y | buildozer init"
+          sudo apt update
+          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip python3-setuptools python3-wheel python3-venv build-essential ccache libncurses5 libstdc++6 libffi-dev libssl-dev libsqlite3-dev zlib1g-dev
+
+      - name: Install buildozer
+        run: |
+          pip install --upgrade pip
+          pip install buildozer
+
+      - name: Init buildozer if not exists
+        run: |
+          if [ ! -f buildozer.spec ]; then
+            buildozer init
           fi
-      
-      # Ver contenido del buildozer.spec
-      - name: Display buildozer.spec
-        run: cat buildozer.spec
-      
-      # Ejecutar la compilación con Buildozer dentro del contenedor con redirección de salida
-      - name: Build with Buildozer
+
+      - name: Build APK
         run: |
-          docker run --rm -v $(pwd):/github/workspace -v /home/runner/.buildozer_global:/root/.buildozer custom-buildozer sh -c "cd /github/workspace && yes y | buildozer --use-system-buildozer -v android debug" > buildozer_output.log 2>&1 || (cat buildozer_output.log && exit 1)
-          
-          # Si llegamos aquí, el comando se completó correctamente
-          # Mostrar las últimas 100 líneas del log para ver el resultado
-          tail -n 100 buildozer_output.log
-      
-      # Si la compilación falló, mostrar el log completo
-      - name: Display full log on failure
-        if: failure()
-        run: |
-          echo "### Mostrando el log completo de Buildozer ###"
-          cat buildozer_output.log
-          
-          # También vamos a mostrar los logs específicos de Python-for-Android si existen
-          if [ -f ".buildozer/android/platform/python-for-android/build.log" ]; then
-            echo "### Mostrando log de Python-for-Android ###"
-            cat .buildozer/android/platform/python-for-android/build.log
-          fi
-      
-      # Buscar el archivo APK generado
-      - name: Find APK file
-        id: find-apk
-        run: |
-          APK_PATH=$(find . -name "*.apk" | head -n 1)
-          if [ -z "$APK_PATH" ]; then
-            echo "No APK file found!"
-            exit 1
-          fi
-          echo "Found APK at $APK_PATH"
-          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
-      
-      # Subir los artefactos
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+          buildozer android debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
         with:
-          name: package
-          path: ${{ steps.find-apk.outputs.apk_path }}
-      
-      # Guardar logs como artefacto para su revisión
-      - name: Save logs as artifact
-        uses: actions/upload-artifact@v4
-        if: always()  # Siempre ejecutar este paso, incluso si falla el resto
-        with:
-          name: buildozer-logs
-          path: |
-            buildozer_output.log
-            .buildozer/android/platform/python-for-android/build.log
+          name: kivy-apk
+          path: bin/*.apk
+
