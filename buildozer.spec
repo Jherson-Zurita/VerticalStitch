@@ -4,7 +4,7 @@
 title = VerticalStitch
 
 # (str) Package name
-package.name = org.jz_dev.verticalstitch
+package.name = verticalstitch
 
 # (str) Package domain (needed for android/ios packaging)
 package.domain = org.jz_dev
