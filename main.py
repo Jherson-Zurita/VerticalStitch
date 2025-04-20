@@ -101,7 +101,7 @@ class VideoProcessingApp(MDApp):
         Si el archivo no existe, se crea con propiedades predeterminadas.
         """
         default_settings = {
-        "theme": "",
+        "theme": "Light",
         "language": "es",
         "video_path": "",
         "image_path": ""
