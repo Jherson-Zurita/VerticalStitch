@@ -1,5 +1,4 @@
 name: Build Kivy APK
-
 on:
   push:
     branches:
@@ -10,57 +9,75 @@ jobs:
   build:
     name: Build APK with Buildozer
     runs-on: ubuntu-22.04
-
+    
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
+        
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-
+          
       - name: Add swap memory
         run: |
-          sudo fallocate -l 4G /swapfile
+          sudo fallocate -l 6G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
-          free -h  # optional: mostrar memoria disponible
-
-      - name: Install dependencies
+          echo "Memoria después de agregar swap:"
+          free -h
+          
+      - name: Install system dependencies
         run: |
           sudo apt update
-          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip python3-setuptools python3-wheel python3-venv build-essential ccache libncurses5 libstdc++6 libffi-dev libssl-dev libsqlite3-dev zlib1g-dev
-
-      - name: Install buildozer
+          sudo apt install -y \
+            git zip unzip openjdk-17-jdk \
+            python3-pip python3-setuptools python3-wheel python3-venv \
+            build-essential ccache libncurses5 libstdc++6 \
+            libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
+            libltdl-dev libtool autotools-dev autoconf pkg-config
+            
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          
+      - name: Install buildozer and dependencies
         run: |
-          pip install --upgrade pip
-          pip install buildozer cython
-
-      - name: Init buildozer if not exists
+          pip install --upgrade pip setuptools wheel
+          pip install buildozer==1.5.0 cython==0.29.36
+          
+      - name: Set environment variables
+        run: |
+          echo "GRADLE_OPTS=-Xmx4096m -Dorg.gradle.daemon=false" >> $GITHUB_ENV
+          echo "ORG_GRADLE_PROJECT_org.gradle.jvmargs=-Xmx4096m" >> $GITHUB_ENV
+          echo "JAVA_OPTS=-Xmx4096m" >> $GITHUB_ENV
+          
+      - name: Cache buildozer directory
+        uses: actions/cache@v3
+        with:
+          path: |
+            .buildozer
+          key: buildozer-${{ hashFiles('buildozer.spec') }}
+          
+      - name: Initialize buildozer
         run: |
           if [ ! -f buildozer.spec ]; then
             buildozer init
           fi
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
-        with:
-          java-version: 17
-          distribution: 'temurin'
-
-      - name: Set Gradle memory limits
-        run: echo "ORG_GRADLE_PROJECT_org.gradle.jvmargs=-Xmx4096m" >> $GITHUB_ENV
-
+          
       - name: Build APK
         run: |
-          yes | buildozer android debug
-
+          buildozer android debug --verbose
+          
       - name: Upload APK
         uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: kivy-apk
           path: bin/*.apk
+          retention-days: 30
 
 
