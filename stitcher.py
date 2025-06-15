@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from skimage.metrics import structural_similarity as ssim
+#from skimage.metrics import structural_similarity as ssim
 def get_frames(video_path, crop_percent=0, keep_first_original=True, keep_last_original=True, interval=1):
     # Abre el video con OpenCV
     cap = cv2.VideoCapture(video_path)
@@ -348,10 +348,7 @@ def calcular_coincidencia(img1, img2, metodo='pixel'):
         return np.sum(img1 == img2) / img1.size
     elif metodo == 'ssim':
         # Índice de similitud estructural
-        try:
-            return ssim(img1, img2, data_range=255)
-        except ImportError:
-            return np.sum(img1 == img2) / img1.size
+        return np.sum(img1 == img2) / img1.size
     elif metodo == 'histograma':
         # Comparación por histograma
         hist1 = cv2.calcHist([img1], [0], None, [256], [0, 256])
